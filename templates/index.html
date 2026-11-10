@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VoiceGenius — AI Voice Assistant by Gnani AI</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<!-- ===== Header ===== -->
+<header class="app-header">
+  <div class="header-inner">
+    <div class="logo">
+      <span class="logo-icon">🎙️</span>
+      <span class="logo-text">VoiceGenius</span>
+      <span class="logo-badge">powered by Gnani AI</span>
+    </div>
+    <div class="header-controls">
+      <select id="langSelect" class="select-pill" title="Select language">
+        <option value="en-IN">🇮🇳 English</option>
+        <option value="hi-IN">🇮🇳 Hindi</option>
+        <option value="kn-IN">🇮🇳 Kannada</option>
+        <option value="ta-IN">🇮🇳 Tamil</option>
+        <option value="te-IN">🇮🇳 Telugu</option>
+        <option value="bn-IN">🇮🇳 Bengali</option>
+        <option value="mr-IN">🇮🇳 Marathi</option>
+        <option value="pa-IN">🇮🇳 Punjabi</option>
+        <option value="indic-auto">🤖 Auto-detect</option>
+      </select>
+      <select id="voiceSelect" class="select-pill" title="Select voice">
+        <option value="Shivani">Shivani ♀</option>
+        <option value="Avinash">Avinash ♂</option>
+      </select>
+      <div class="speed-control">
+        <span>🐢</span>
+        <input type="range" id="speedRange" min="0.5" max="2.0" step="0.1" value="1.0"/>
+        <span>🐇</span>
+        <span id="speedVal" class="speed-value">1.0×</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ===== Main ===== -->
+<main class="app-main">
+
+  <!-- Left: Input panel -->
+  <section class="mic-panel">
+
+    <div id="statusPill" class="status-pill idle">
+      <span class="status-dot"></span>
+      <span id="statusText">Ready</span>
+    </div>
+
+    <!-- Waveform -->
+    <div id="waveform" class="waveform">
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+    </div>
+
+    <!-- Big mic button — server-side recording -->
+    <button id="micBtn" class="mic-btn" title="Click to start/stop recording">
+      <svg id="micIcon" class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8"  y1="23" x2="16" y2="23"/>
+      </svg>
+      <span id="micLabel" class="mic-hint">Click to speak</span>
+    </button>
+
+    <p class="mic-subtext">Click once to <strong>start</strong>, click again to <strong>stop & send</strong></p>
+
+    <!-- STT mode -->
+    <div class="format-row">
+      <span class="format-label">STT mode:</span>
+      <select id="fmtSelect" class="select-tiny">
+        <option value="transcribe">Transcribe</option>
+        <option value="verbatim">Verbatim</option>
+        <option value="codemix">Codemix (Hinglish)</option>
+        <option value="transliterate">Transliterate</option>
+      </select>
+    </div>
+
+    <!-- Divider -->
+    <div class="divider-row"><span>— or type your message —</span></div>
+
+    <!-- Text input -->
+    <div class="type-row">
+      <input type="text" id="textInput" class="text-input" placeholder="Type here and press Enter..."/>
+      <button id="sendBtn" class="send-btn">Send ➤</button>
+    </div>
+
+    <!-- Divider -->
+    <div class="divider-row"><span>— or upload an audio file —</span></div>
+
+    <!-- File upload -->
+    <label class="upload-label" for="audioUpload">
+      📂 Upload Audio (WAV / MP3 / M4A / OGG)
+      <input type="file" id="audioUpload" accept="audio/*" style="display:none"/>
+    </label>
+
+    <!-- Transcript -->
+    <div class="transcript-box" aria-live="polite">
+      <span class="transcript-label">Heard:</span>
+      <span id="transcriptText" class="transcript-text">—</span>
+    </div>
+
+    <audio id="audioPlayer"></audio>
+  </section>
+
+  <!-- Right: Chat -->
+  <section class="chat-panel">
+    <div class="chat-header">
+      <h2 class="chat-title">💬 Conversation</h2>
+      <button id="clearBtn" class="btn-ghost">🗑 Clear</button>
+    </div>
+    <div id="chatHistory" class="chat-history" role="log" aria-live="polite">
+      <div class="bubble assistant">
+        <span class="bubble-avatar">🤖</span>
+        <div class="bubble-body">
+          <p>Hi! I'm <strong>VoiceGenius</strong> powered by <strong>Gnani AI</strong>.<br/>
+          🎤 Click the mic button to speak<br/>
+          ⌨️ Or type a message below<br/>
+          📂 Or upload an audio file<br/>
+          🌍 Switch language from the top menu!</p>
+          <span class="bubble-time">Just now</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== Footer ===== -->
+<footer class="app-footer">
+  <span>VoiceGenius &copy; 2026 &nbsp;•&nbsp;</span>
+  <span>STT: <strong>Gnani Prisma v3</strong> &nbsp;•&nbsp;</span>
+  <span>TTS: <strong>Gnani Timbre v3</strong> &nbsp;•&nbsp;</span>
+  <span>LLM: <strong>Gemini 1.5 Flash</strong></span>
+</footer>
+
+<!-- ===== JavaScript ===== -->
+<script>
+// ============================================================
+//  VoiceGenius — Frontend JS
+//  Three input methods:
+//  1. Server-side mic recording (click start/stop)
+//  2. Type + Enter
+//  3. Upload audio file
+// ============================================================
+
+const micBtn        = document.getElementById("micBtn");
+const micLabel      = document.getElementById("micLabel");
+const statusPill    = document.getElementById("statusPill");
+const statusText    = document.getElementById("statusText");
+const waveform      = document.getElementById("waveform");
+const transcriptTxt = document.getElementById("transcriptText");
+const chatHistory   = document.getElementById("chatHistory");
+const audioPlayer   = document.getElementById("audioPlayer");
+const langSelect    = document.getElementById("langSelect");
+const voiceSelect   = document.getElementById("voiceSelect");
+const speedRange    = document.getElementById("speedRange");
+const speedVal      = document.getElementById("speedVal");
+const fmtSelect     = document.getElementById("fmtSelect");
+const clearBtn      = document.getElementById("clearBtn");
+const textInput     = document.getElementById("textInput");
+const sendBtn       = document.getElementById("sendBtn");
+const audioUpload   = document.getElementById("audioUpload");
+
+// Voice options per language
+const VOICES = {
+  "en-IN":      ["Shivani","Avinash"],
+  "hi-IN":      ["Kalpana","Nalini"],
+  "kn-IN":      ["Shivani"],
+  "ta-IN":      ["Shivani"],
+  "te-IN":      ["Shivani"],
+  "bn-IN":      ["Shivani"],
+  "mr-IN":      ["Shivani"],
+  "pa-IN":      ["Shivani"],
+  "indic-auto": ["Shivani"],
+};
+
+// Update voice dropdown when language changes
+function updateVoices(lang) {
+  const opts = VOICES[lang] || ["Shivani"];
+  voiceSelect.innerHTML = "";
+  opts.forEach(v => {
+    const o = document.createElement("option");
+    o.value = v;
+    o.textContent = v + (["Shivani","Kalpana","Nalini","Kaveri"].includes(v) ? " ♀" : " ♂");
+    voiceSelect.appendChild(o);
+  });
+}
+langSelect.addEventListener("change", () => updateVoices(langSelect.value));
+speedRange.addEventListener("input",  () => { speedVal.textContent = parseFloat(speedRange.value).toFixed(1) + "×"; });
+
+// ---- Helpers ----
+function setStatus(state, text) {
+  statusPill.className = `status-pill ${state}`;
+  statusText.textContent = text;
+}
+function startWave() { waveform.classList.add("active"); }
+function stopWave()  { waveform.classList.remove("active"); }
+
+function esc(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function addBubble(role, text) {
+  const isUser = role === "user";
+  const time   = new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+  const d      = document.createElement("div");
+  d.className  = `bubble ${isUser?"user":"assistant"}`;
+  d.innerHTML  = `
+    ${!isUser?'<span class="bubble-avatar">🤖</span>':""}
+    <div class="bubble-body">
+      <p>${esc(text)}</p>
+      <span class="bubble-time">${time}</span>
+    </div>
+    ${isUser?'<span class="bubble-avatar user-av">🎤</span>':""}
+  `;
+  chatHistory.appendChild(d);
+  chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+
+let thinkEl = null;
+function showThink() {
+  thinkEl = document.createElement("div");
+  thinkEl.className = "bubble assistant thinking";
+  thinkEl.innerHTML = '<span class="bubble-avatar">🤖</span><div class="bubble-body"><span class="dots"><span>.</span><span>.</span><span>.</span></span></div>';
+  chatHistory.appendChild(thinkEl);
+  chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+function hideThink() { if(thinkEl){thinkEl.remove();thinkEl=null;} }
+
+async function playAudio(b64) {
+  if (!b64) return;
+  setStatus("speaking","Speaking…");
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const blob  = new Blob([bytes],{type:"audio/wav"});
+  const url   = URL.createObjectURL(blob);
+  audioPlayer.src = url;
+  audioPlayer.onended = () => { URL.revokeObjectURL(url); setStatus("idle","Ready"); };
+  audioPlayer.onerror = () => setStatus("idle","Ready");
+  await audioPlayer.play().catch(e => { console.warn(e); setStatus("idle","Ready"); });
+}
+
+// ============================================================
+// INPUT 1: Server-side mic recording (click start → click stop)
+// ============================================================
+let serverRecording = false;
+
+micBtn.addEventListener("click", async () => {
+  if (!serverRecording) {
+    // START recording
+    serverRecording = true;
+    micBtn.classList.add("active");
+    micLabel.textContent = "Click to stop";
+    setStatus("recording","Recording… speak now!");
+    startWave();
+
+    try {
+      const r = await fetch("/record/start", {method:"POST"});
+      const d = await r.json();
+      if (d.error) {
+        serverRecording = false;
+        micBtn.classList.remove("active");
+        micLabel.textContent = "Click to speak";
+        stopWave();
+        setStatus("error", "Mic error: " + d.error);
+        addBubble("assistant","⚠️ Mic error: " + d.error + ". Please use text input or upload a file.");
+      }
+    } catch(e) {
+      serverRecording = false;
+      micBtn.classList.remove("active");
+      micLabel.textContent = "Click to speak";
+      stopWave();
+      setStatus("error","Cannot connect to server");
+    }
+
+  } else {
+    // STOP recording and process
+    serverRecording = false;
+    micBtn.classList.remove("active");
+    micLabel.textContent = "Click to speak";
+    stopWave();
+    setStatus("processing","Processing…");
+    showThink();
+
+    const lang  = langSelect.value;
+    const voice = voiceSelect.value;
+    const speed = speedRange.value;
+    const fmt   = fmtSelect.value;
+
+    try {
+      const r = await fetch("/record/stop", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({language:lang, voice:voice, speed:parseFloat(speed), format:fmt})
+      });
+      const d = await r.json();
+      hideThink();
+
+      if (!r.ok || d.error) {
+        setStatus("error","Error");
+        addBubble("assistant","⚠️ " + (d.error||"Something went wrong."));
+        return;
+      }
+
+      transcriptTxt.textContent = d.transcript;
+      addBubble("user",      d.transcript);
+      addBubble("assistant", d.response);
+      await playAudio(d.audio_b64);
+
+    } catch(e) {
+      hideThink();
+      setStatus("error","Network error");
+      addBubble("assistant","⚠️ Network error. Please try again.");
+    }
+  }
+});
+
+// ============================================================
+// INPUT 2: Text → /chat → /synthesize
+// ============================================================
+async function sendText() {
+  const txt  = textInput.value.trim();
+  if (!txt) return;
+  const lang  = langSelect.value;
+  const voice = voiceSelect.value;
+  const speed = parseFloat(speedRange.value);
+
+  textInput.value = "";
+  addBubble("user", txt);
+  transcriptTxt.textContent = txt;
+  setStatus("processing","Thinking…");
+  showThink();
+
+  try {
+    // Chat
+    const cr = await fetch("/chat",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({text:txt, language:lang})
+    });
+    const cd = await cr.json();
+    hideThink();
+
+    if (!cr.ok || cd.error) {
+      setStatus("error","Chat error");
+      addBubble("assistant","⚠️ " + (cd.error||"AI error."));
+      return;
+    }
+
+    addBubble("assistant", cd.response);
+    setStatus("processing","Generating voice…");
+
+    // TTS
+    const tr = await fetch("/synthesize",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({text:cd.response, language:lang, voice:voice, speed:speed})
+    });
+
+    if (tr.ok) {
+      const tblob = await tr.blob();
+      const url   = URL.createObjectURL(tblob);
+      audioPlayer.src = url;
+      setStatus("speaking","Speaking…");
+      audioPlayer.onended = () => { URL.revokeObjectURL(url); setStatus("idle","Ready"); };
+      audioPlayer.onerror = () => setStatus("idle","Ready");
+      await audioPlayer.play().catch(() => setStatus("idle","Ready"));
+    } else {
+      setStatus("idle","Ready");
+    }
+
+  } catch(e) {
+    hideThink();
+    setStatus("error","Network error");
+    addBubble("assistant","⚠️ Network error.");
+  }
+}
+
+sendBtn.addEventListener("click", sendText);
+textInput.addEventListener("keydown", e => { if(e.key==="Enter") sendText(); });
+
+// ============================================================
+// INPUT 3: Upload audio file → /voice-pipeline
+// ============================================================
+audioUpload.addEventListener("change", async () => {
+  const file = audioUpload.files[0];
+  if (!file) return;
+
+  const lang  = langSelect.value;
+  const voice = voiceSelect.value;
+  const speed = speedRange.value;
+  const fmt   = fmtSelect.value;
+
+  addBubble("assistant",`📂 Processing: ${file.name}`);
+  setStatus("processing","Transcribing…");
+  showThink();
+
+  const fd = new FormData();
+  fd.append("audio",    file);
+  fd.append("language", lang);
+  fd.append("voice",    voice);
+  fd.append("speed",    speed);
+  fd.append("format",   fmt);
+
+  try {
+    const r = await fetch("/voice-pipeline",{method:"POST",body:fd});
+    const d = await r.json();
+    hideThink();
+
+    if (!r.ok || d.error) {
+      setStatus("error","Error");
+      addBubble("assistant","⚠️ " + (d.error||"Error processing file."));
+    } else {
+      transcriptTxt.textContent = d.transcript;
+      addBubble("user",      d.transcript);
+      addBubble("assistant", d.response);
+      await playAudio(d.audio_b64);
+    }
+
+  } catch(e) {
+    hideThink();
+    setStatus("error","Network error");
+    addBubble("assistant","⚠️ Network error.");
+  }
+
+  audioUpload.value = "";
+});
+
+// ============================================================
+// Clear chat
+// ============================================================
+clearBtn.addEventListener("click", () => {
+  chatHistory.innerHTML = "";
+  transcriptTxt.textContent = "—";
+  setStatus("idle","Ready");
+  addBubble("assistant","Chat cleared! 🎤 Click the mic, type, or upload audio to start.");
+});
+
+// ============================================================
+// On load
+// ============================================================
+window.addEventListener("DOMContentLoaded", async () => {
+  try {
+    const r = await fetch("/health");
+    const d = await r.json();
+    if (d.mock_mode)  addBubble("assistant","ℹ️ MOCK MODE — set API keys in .env to go live!");
+    if (!d.gnani_key) addBubble("assistant","⚠️ GNANI_API_KEY missing — STT/TTS won't work.");
+    if (!d.gemini_key)addBubble("assistant","ℹ️ GEMINI_API_KEY missing — using basic fallback responses.");
+  } catch(_) {}
+  textInput.focus();
+});
+</script>
+</body>
+</html>

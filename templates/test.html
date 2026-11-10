@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>VoiceGenius - Debug Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 30px; max-width: 700px; margin: auto; }
+    h2   { color: #a78bfa; }
+    button { padding: 12px 28px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; margin: 8px; }
+    .btn-rec  { background: #7c3aed; color: white; }
+    .btn-stop { background: #ef4444; color: white; }
+    .btn-test { background: #0ea5e9; color: white; }
+    .log  { background: #1e1e3f; border: 1px solid #333; border-radius: 8px; padding: 16px;
+            font-family: monospace; font-size: 13px; min-height: 120px; margin-top: 12px;
+            white-space: pre-wrap; overflow-y: auto; max-height: 300px; }
+    .ok   { color: #22c55e; }
+    .err  { color: #ef4444; }
+    .info { color: #60a5fa; }
+    label { font-size: 14px; color: #94a3b8; }
+    audio { width: 100%; margin-top: 10px; }
+    hr    { border-color: #333; margin: 24px 0; }
+  </style>
+</head>
+<body>
+
+<h2>🔧 VoiceGenius — Debug Test Page</h2>
+<p style="color:#94a3b8">Use this page to test each step one by one.</p>
+
+<hr>
+
+<!-- STEP 1: Health Check -->
+<h3>Step 1 — Server Health</h3>
+<button class="btn-test" onclick="checkHealth()">Check Server</button>
+<div id="healthLog" class="log">Click the button above...</div>
+
+<hr>
+
+<!-- STEP 2: Mic Test -->
+<h3>Step 2 — Microphone Test</h3>
+<button class="btn-rec"  id="startBtn" onclick="startRec()">🎤 Start Recording</button>
+<button class="btn-stop" id="stopBtn"  onclick="stopRec()" disabled>⏹ Stop & Send</button>
+<br>
+<label>Language:
+  <select id="lang" style="background:#22224a;color:white;border:1px solid #444;padding:6px;border-radius:6px;margin:8px 0">
+    <option value="en-IN">English (en-IN)</option>
+    <option value="hi-IN">Hindi (hi-IN)</option>
+    <option value="kn-IN">Kannada (kn-IN)</option>
+    <option value="ta-IN">Tamil (ta-IN)</option>
+    <option value="te-IN">Telugu (te-IN)</option>
+    <option value="indic-auto">Auto-detect (indic-auto)</option>
+  </select>
+</label>
+<div id="recLog" class="log">Click Start Recording, speak for 3 seconds, then click Stop...</div>
+
+<hr>
+
+<!-- STEP 3: Transcript result -->
+<h3>Step 3 — Transcript (what Gnani heard)</h3>
+<div id="sttResult" class="log">Will appear after Step 2...</div>
+
+<hr>
+
+<!-- STEP 4: Gemini reply -->
+<h3>Step 4 — AI Reply (Gemini)</h3>
+<button class="btn-test" id="chatBtn" onclick="testChat()" disabled>Test Gemini with transcript</button>
+<div id="chatResult" class="log">Will appear after Step 3...</div>
+
+<hr>
+
+<!-- STEP 5: TTS -->
+<h3>Step 5 — Voice Output (Gnani Timbre)</h3>
+<button class="btn-test" id="ttsBtn" onclick="testTTS()" disabled>Test TTS with AI reply</button>
+<div id="ttsResult" class="log">Will appear after Step 4...</div>
+<audio id="audioOut" controls style="display:none"></audio>
+
+<script>
+let lastTranscript = "";
+let lastReply      = "";
+let mediaRecorder  = null;
+let audioChunks    = [];
+
+function log(id, msg, cls="info") {
+  const el = document.getElementById(id);
+  el.innerHTML += `<span class="${cls}">${msg}</span>\n`;
+  el.scrollTop = el.scrollHeight;
+}
+function clearLog(id) { document.getElementById(id).innerHTML = ""; }
+
+// ---- Step 1: Health ----
+async function checkHealth() {
+  clearLog("healthLog");
+  log("healthLog", "Calling /health ...");
+  try {
+    const r = await fetch("/health");
+    const d = await r.json();
+    log("healthLog", "✅ Server is running!", "ok");
+    log("healthLog", `   mock_mode  : ${d.mock_mode}`, d.mock_mode ? "err" : "ok");
+    log("healthLog", `   gnani_key  : ${d.gnani_key}`, d.gnani_key  ? "ok" : "err");
+    log("healthLog", `   gemini_key : ${d.gemini_key}`, d.gemini_key ? "ok" : "err");
+    log("healthLog", `   STT URL    : ${d.stt_url}`);
+    log("healthLog", `   TTS URL    : ${d.tts_url}`);
+  } catch(e) {
+    log("healthLog", "❌ Cannot reach server: " + e.message, "err");
+  }
+}
+
+// ---- Step 2: Record ----
+async function startRec() {
+  clearLog("recLog");
+  clearLog("sttResult");
+  document.getElementById("chatBtn").disabled = true;
+  document.getElementById("ttsBtn").disabled  = true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    log("recLog", "✅ Microphone access granted!", "ok");
+
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus" : "audio/webm";
+    log("recLog", `   MIME type: ${mimeType}`);
+
+    audioChunks  = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.start(100);
+
+    log("recLog", "🔴 Recording... SPEAK NOW! Then click Stop.", "info");
+    document.getElementById("startBtn").disabled = true;
+    document.getElementById("stopBtn").disabled  = false;
+  } catch(e) {
+    log("recLog", "❌ Mic error: " + e.message, "err");
+    log("recLog", "   → Go to browser address bar → click 🔒 → allow Microphone", "err");
+  }
+}
+
+async function stopRec() {
+  document.getElementById("startBtn").disabled = false;
+  document.getElementById("stopBtn").disabled  = true;
+
+  return new Promise(resolve => {
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+      log("recLog", `✅ Recording stopped. Size: ${blob.size} bytes`, blob.size > 1000 ? "ok" : "err");
+
+      if (blob.size < 500) {
+        log("recLog", "❌ Recording too small — mic may not be capturing audio", "err");
+        resolve(); return;
+      }
+
+      log("recLog", "📤 Sending to Gnani Prisma STT...");
+      const lang = document.getElementById("lang").value;
+      const fd   = new FormData();
+      fd.append("audio", blob, "test.webm");
+      fd.append("language", lang);
+      fd.append("format", "transcribe");
+
+      try {
+        const r = await fetch("/transcribe", { method: "POST", body: fd });
+        const d = await r.json();
+
+        if (d.error) {
+          log("sttResult", "❌ STT Error: " + d.error, "err");
+        } else {
+          lastTranscript = d.transcript || "";
+          log("sttResult", `✅ Transcript: "${lastTranscript}"`, "ok");
+          log("sttResult", `   Language  : ${d.language}`);
+          document.getElementById("chatBtn").disabled = false;
+        }
+      } catch(e) {
+        log("sttResult", "❌ Network error: " + e.message, "err");
+      }
+      resolve();
+    };
+    mediaRecorder.stop();
+  });
+}
+
+// ---- Step 4: Gemini ----
+async function testChat() {
+  clearLog("chatResult");
+  log("chatResult", `📤 Sending to Gemini: "${lastTranscript}"`);
+  try {
+    const r = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: lastTranscript })
+    });
+    const d = await r.json();
+    if (d.error) {
+      log("chatResult", "❌ Error: " + d.error, "err");
+    } else {
+      lastReply = d.response;
+      log("chatResult", `✅ AI Reply: "${lastReply}"`, "ok");
+      document.getElementById("ttsBtn").disabled = false;
+    }
+  } catch(e) {
+    log("chatResult", "❌ Network error: " + e.message, "err");
+  }
+}
+
+// ---- Step 5: TTS ----
+async function testTTS() {
+  clearLog("ttsResult");
+  log("ttsResult", `📤 Sending to Gnani Timbre: "${lastReply}"`);
+  try {
+    const r = await fetch("/synthesize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: lastReply, language: "en-IN", voice: "Shivani", speed: 1.0 })
+    });
+    if (!r.ok) {
+      const d = await r.json();
+      log("ttsResult", "❌ TTS Error: " + d.error, "err");
+      return;
+    }
+    const blob = await r.blob();
+    log("ttsResult", `✅ Got audio! Size: ${blob.size} bytes`, "ok");
+    const url = URL.createObjectURL(blob);
+    const audio = document.getElementById("audioOut");
+    audio.src   = url;
+    audio.style.display = "block";
+    audio.play();
+    log("ttsResult", "🔊 Playing audio now...", "ok");
+  } catch(e) {
+    log("ttsResult", "❌ Network error: " + e.message, "err");
+  }
+}
+
+// Auto-run health check on load
+window.onload = checkHealth;
+</script>
+</body>
+</html>
